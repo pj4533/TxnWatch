@@ -20,4 +20,9 @@ OPTIONS:
 
 `swift package generate-xcodeproj` Generates an xcode project file
 
+### Helpful Links
+
+https://etid.wtd.ru
+
+https://etherscan.io
 
