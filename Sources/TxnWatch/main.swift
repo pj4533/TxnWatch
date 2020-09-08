@@ -12,6 +12,14 @@ struct TxnWatch: ParsableCommand {
 
 	func run() {
         print("Address: \(self.address)")
+        
+         let socketManager = SocketManager()
+         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+             socketManager.getTxns(forAddress: self.address)
+         }
+        
+        // Run GCD main dispatcher, this function never returns, call exit() elsewhere to quit the program or it will hang
+        dispatchMain()
     }
         
 }
