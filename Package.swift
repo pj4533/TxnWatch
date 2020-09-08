@@ -9,11 +9,13 @@ let package = Package(
         .executable(name: "txnwatch", targets: ["TxnWatch"])
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser", from: "0.0.1")
+        .package(url: "https://github.com/apple/swift-argument-parser", from: "0.0.1"),
+        .package(url: "https://github.com/matter-labs/web3swift", from: "2.2.1")
     ],
     targets: [
         .target(name: "TxnWatch", dependencies: [
-            .product(name: "ArgumentParser", package: "swift-argument-parser")
+            .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            .product(name: "Web3swift", package: "web3swift")
         ])
     ]
 )
