@@ -24,8 +24,8 @@ class SocketManager : WebSocketDelegate {
     
     func didReceive(event: WebSocketEvent, client: WebSocket) {
         switch event {
-        case .connected(let headers):
-            print("websocket is connected: \(headers)")
+        case .connected(_):
+            print("websocket is connected")
         case .disconnected(let reason, let code):
             print("websocket is disconnected: \(reason) with code: \(code)")
         case .text(let string):
