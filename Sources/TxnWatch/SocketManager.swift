@@ -22,9 +22,23 @@ class SocketManager : WebSocketDelegate {
     func processText(_ text:String) {
         let jsonData = text.data(using: .utf8)!
         do {
+            struct Txn : Codable {
+                let transactionHash : String?
+            }
+            struct Parameters : Codable {
+                let result : Txn?
+            }
+            struct Subscription : Codable {
+                let params : Parameters?
+            }
             let sub = try JSONDecoder().decode(Subscription.self, from: jsonData)
             if let txnHash = sub.params?.result?.transactionHash {
-                print("TXN: \(txnHash)")
+                let datasource = InfuraDataSource()
+                datasource.getTxnHash(txnHash: txnHash, withSuccess: { (transaction) in
+                    print("TXN: \(transaction?.hash ?? "???")\n\(transaction?.input ?? "???")\n")
+                }) { (error) in
+                    print(error?.localizedDescription ?? "Unknown Error")
+                }
             }
         } catch let error {
             print(error.localizedDescription)
