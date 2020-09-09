@@ -4,6 +4,7 @@ import Starscream
 class SocketManager : WebSocketDelegate {
     
     var socket : WebSocket?
+    var debug = false
     
     init() {
         var request = URLRequest(url: URL(string: "wss://mainnet.infura.io/ws/v3/\(Secrets().infuraProjectId)")!)
@@ -15,21 +16,33 @@ class SocketManager : WebSocketDelegate {
     
     func getTxns(forAddress address: String) {
         let socketString = "{\"jsonrpc\":\"2.0\",\"method\":\"eth_subscribe\",\"id\":1,\"params\":[\"logs\", {\"address\":[\"\(address)\"]}]}"
-        
-        print("--> \(socketString)")
-        self.socket?.write(string: socketString, completion: {
-            
-        })
+        self.socket?.write(string: socketString, completion: nil)
+    }
+    
+    func processText(_ text:String) {
+        let jsonData = text.data(using: .utf8)!
+        do {
+            let sub = try JSONDecoder().decode(Subscription.self, from: jsonData)
+            if let txnHash = sub.params?.result?.transactionHash {
+                print("TXN: \(txnHash)")
+            }
+        } catch let error {
+            print(error.localizedDescription)
+        }
     }
     
     func didReceive(event: WebSocketEvent, client: WebSocket) {
         switch event {
         case .connected(_):
-            print("websocket is connected")
+            if self.debug {
+                print("websocket is connected")
+            }
         case .disconnected(let reason, let code):
-            print("websocket is disconnected: \(reason) with code: \(code)")
+            if self.debug {
+                print("websocket is disconnected: \(reason) with code: \(code)")
+            }
         case .text(let string):
-            print("Received text: \(string)")
+            self.processText(string)
         case .binary(let data):
             print("Received data: \(data.count)")
         case .ping(_):
