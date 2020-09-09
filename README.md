@@ -12,13 +12,9 @@ OPTIONS:
   -h, --help              Show help information.
 ```
 
-### Developer Commands
-
-`swift build` Builds app to the `.build` folder
-
-`swift build -c release` Build a release version
-
-`swift package generate-xcodeproj` Generates an xcode project file
+TxnWatch connects via websocket to Infura and subscribes to the 
+logs of a given address. When a transaction comes through, a call
+is made to the Infura API `eth_getTransactionByHash` and the input data and txn hash are output to the console.
 
 ### Example Output
 
@@ -37,4 +33,12 @@ TXN: 0xd9511c6513ccde52851e2d187ae12473d191dada660620c5f670496ce3d54717
 https://etid.wtd.ru
 
 https://etherscan.io
+
+### Developer Commands
+
+`swift build` Builds app to the `.build` folder
+
+`swift build -c release` Build a release version
+
+`swift package generate-xcodeproj` Generates an xcode project file
 
