@@ -6,7 +6,7 @@ class SocketManager : WebSocketDelegate {
     var socket : WebSocket?
     
     init() {
-        var request = URLRequest(url: URL(string: "wss://mainnet.infura.io/ws/v3/3a0b2cf4434943908b81e54735c1013f")!)
+        var request = URLRequest(url: URL(string: "wss://mainnet.infura.io/ws/v3/\(Secrets().infuraProjectId)")!)
         request.timeoutInterval = 5
         self.socket = WebSocket(request: request)
         self.socket?.delegate = self
