@@ -26,3 +26,4 @@ https://etid.wtd.ru
 
 https://etherscan.io
 
+https://solidity.readthedocs.io/en/develop/abi-spec.html
