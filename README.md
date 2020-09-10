@@ -16,6 +16,18 @@ TxnWatch connects via websocket to Infura and subscribes to the
 logs of a given address. When a transaction comes through, a call
 is made to the Infura API `eth_getTransactionByHash` and the input data and txn hash are output to the console.
 
+### Building Notes
+
+As a quick hack for handling secrets (like API keys), I just put them in a file that is excluded from git. 
+1. Under the `Sources` folder, create a file called `Secrets.swift`
+2. In that file put this:
+```
+struct Secrets {
+  let infuraProjectId = "<Your Infura Project ID Key>"
+}
+```
+3. Then build normally
+
 ### Example Output
 
 ```
@@ -33,6 +45,9 @@ TXN: 0xd9511c6513ccde52851e2d187ae12473d191dada660620c5f670496ce3d54717
 https://etid.wtd.ru
 
 https://etherscan.io
+
+https://www.pauric.blog/How-to-Query-and-Monitor-Ethereum-Contract-Events-with-Web3/
+
 
 ### Developer Commands
 
