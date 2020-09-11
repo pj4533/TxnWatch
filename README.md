@@ -3,18 +3,20 @@
 ```
 OVERVIEW: Realtime Ether Transactions
 
-USAGE: txnwatch <address>
+USAGE: txnwatch <address> [--include-transaction]
 
 ARGUMENTS:
-  <address>               Ethereum address
+  <address>               Ethereum token address
 
 OPTIONS:
+  -i, --include-transaction
+                          Include transaction hash in output
   -h, --help              Show help information.
-```
+  ```
 
 TxnWatch connects via websocket to Infura and subscribes to the 
 logs of a given address. When a transaction comes through, a call
-is made to the Infura API `eth_getTransactionByHash` and the input data and txn hash are output to the console.
+is made to get the transaction and the transaction receipt. Data is parsed using the (Web3.swift)[https://github.com/Boilertalk/Web3.swift] library.
 
 ### Building Notes
 
@@ -31,14 +33,15 @@ struct Secrets {
 ### Example Output
 
 ```
-~/projects/TxnWatch ] swift run txnwatch 0x6f87d756daf0503d08eb8993686c7fc01dc44fb1                        
-Address: 0x6f87d756daf0503d08eb8993686c7fc01dc44fb1
-TXN: 0xd9511c6513ccde52851e2d187ae12473d191dada660620c5f670496ce3d54717
-0x7ff36ab50000000000000000000000000000000000000000000000b0b3ada63b7eeefa1d00000000000000000000000000000000000000000000000000000000000000800000000000000000000000009175e0e8434cb6c5cc45a64f8a80f66ec81b47bf000000000000000000000000000000000000000000000000000000005f5855510000000000000000000000000000000000000000000000000000000000000002000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20000000000000000000000006f87d756daf0503d08eb8993686c7fc01dc44fb1
-```
-### To do
+~/projects/TxnWatch ]  swift run txnwatch 0x6f87d756daf0503d08eb8993686c7fc01dc44fb1 -i
 
-* Figure out easiest way to decode the transaction input data. I have looked into the various swift Web3 libraries and none seemed to do exactly the right thing. Ideally, I want output similar to the "Transaction Action" on Etherscan. 
+Watching transactions for UniTrade (TRADE)
+
+Date			Type	Price (USD)	Price (ETH)	Amount TRADE	Total ETH	TXN
+09/10/2020 8:55:11	buy	1.26256483	0.00340415	2965.18664325	10.20000000	0xc97ea37bb4bcaae4ba2bb3c2fcee625cc3ca3a43c0a5ec152ad98fc4dcfbef8b
+09/10/2020 8:56:08	buy	1.26256483	0.00340415	5764.81445319	20.00000000	0x82b1474b4e57203f362724cbf6f11452958fcd6a7f9c3ae8a17b3aa3c832853c
+09/10/2020 8:56:25	sell	1.26256483	0.00340415	2179.00000000	7.54083904	0x5ec316a8e0d8260f4a725a697fd3c6b047dcc8951d86abf8486f1c16292b7c55
+09/10/2020 8:58:16	buy	1.26256483	0.00340415	3871.16973692	13.50000000	0x291d3988d8ada0530918289114c6b6094e7a905fcd18ffc3dace934de7ec1d51```
 
 ### Helpful Links
 

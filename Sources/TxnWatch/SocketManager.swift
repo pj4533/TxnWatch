@@ -9,6 +9,8 @@ class SocketManager : WebSocketDelegate {
     var socket : WebSocket?
     var debug = false
     var token : Token?
+    var includeTransactionHash : Bool?
+    var hashesSeen : [String] = []
     
     init() {
         var request = URLRequest(url: URL(string: "wss://mainnet.infura.io/ws/v3/\(Secrets().infuraProjectId)")!)
@@ -18,13 +20,18 @@ class SocketManager : WebSocketDelegate {
         self.socket?.connect()
     }
     
-    func getTxns(forAddress address: String) {
+    func getTxns(forAddress address: String, includeTransaction:Bool?) {
+        self.includeTransactionHash = includeTransaction
         let uniswapDataSource = UniswapDataSource()
         uniswapDataSource.getToken(tokenId: address, withSuccess: { (token) in
             self.token = token
             if let token = token {
                 print("\nWatching transactions for \(token.name) (\(token.symbol))\n")
-                print("\("Date".white.bold)\t\t\t\("Type".white.bold)\t\("Price (USD)".white.bold)\t\("Price (ETH)".white.bold)\t\("Amount \(token.symbol)".white.bold)\t\("Total ETH".white.bold)\t\("TXN".white.bold)")
+                if self.includeTransactionHash ?? false {
+                    print("\("Date".white.bold)\t\t\t\("Type".white.bold)\t\("Price (USD)".white.bold)\t\("Price (ETH)".white.bold)\t\("Amount \(token.symbol)".white.bold)\t\("Total ETH".white.bold)\t\("TXN".white.bold)")
+                } else {
+                    print("\("Date".white.bold)\t\t\t\("Type".white.bold)\t\("Price (USD)".white.bold)\t\("Price (ETH)".white.bold)\t\("Amount \(token.symbol)".white.bold)\t\("Total ETH".white.bold)")
+                }
 
                 let socketString = "{\"jsonrpc\":\"2.0\",\"method\":\"eth_subscribe\",\"id\":1,\"params\":[\"logs\", {\"address\":[\"\(address)\"]}]}"
                 if self.debug {
@@ -75,12 +82,6 @@ class SocketManager : WebSocketDelegate {
                     // swapExactETHForTokens
                     if inputDataMethodSig == "0x7ff36ab5" {
                         transactionType = .buy
-//                        do {
-//                            let params = try ABI.decodeParameters(types: [.uint256,.array(type: .address, length: 2),.address,.uint256], from: inputDataParams)
-//                            print("Input Data: \(params)")
-//                        } catch let error {
-//                            print(error)
-//                        }
                     }
 
                     // swapExactTokensForTokens
@@ -112,9 +113,7 @@ class SocketManager : WebSocketDelegate {
                                         print("Log #\(logIndex) Data: \(log.data.ethereumValue().string ?? "???")")
                                     }
 
-                                    // ERC20 Sig for Swap
-                                    // Swap (index_topic_1 address sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, index_topic_2 address to)
-                                    //
+                                    // 0xd78... is the ERC20 Sig for Swap
                                     if (log.topics.first?.hex() == "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822") {
                                         foundSwap = true
                                         do {
@@ -149,7 +148,7 @@ class SocketManager : WebSocketDelegate {
                                     }
                                     logIndex = logIndex + 1
 
-                                    // if we found a swap, there might be another if it is a swapTokensForTokens, but we just care about the first one (in reverse order)
+                                    // if we found a swap, there might be another if it is a swapTokensForTokens, but we just care about the first one
                                     if foundSwap {
                                         break
                                     }
@@ -165,11 +164,15 @@ class SocketManager : WebSocketDelegate {
                                         let colorizedTransactionType = transactionType == .buy ? transactionType.rawValue.green : transactionType.rawValue.red
                                         
                                         let formatter = DateFormatter()
-                                        formatter.dateFormat = "MM/dd/yyyy h:mm:ss a"
+                                        formatter.dateFormat = "MM/dd/yyyy h:mm:ss"
                                         let dateString = formatter.string(from: Date())
                                         
                                         
-                                        print(String(format: "\(dateString)\t\(colorizedTransactionType)\t%.8f\t%.8f\t%.8f\t%.8f\t\(txnHash)",priceUSD,Double(priceETH ?? "0.0") ?? 0.0,amountToken,totalEth))
+                                        if self.includeTransactionHash ?? false {
+                                            print(String(format: "\(dateString)\t\(colorizedTransactionType)\t%.8f\t%.8f\t%.8f\t%.8f\t\(txnHash)",priceUSD,Double(priceETH ?? "0.0") ?? 0.0,amountToken,totalEth))
+                                        } else {
+                                            print(String(format: "\(dateString)\t\(colorizedTransactionType)\t%.8f\t%.8f\t%.8f\t%.8f",priceUSD,Double(priceETH ?? "0.0") ?? 0.0,amountToken,totalEth))
+                                        }
                                     }) { (error) in
                                         print("Coin Gecko Error: \(error?.localizedDescription ?? "Unknown Error")")
                                     }
@@ -184,31 +187,6 @@ class SocketManager : WebSocketDelegate {
                 print(error)
             }
         }
-
-//        let datasource = InfuraDataSource()
-//        datasource.getTxnHash(txnHash: txnHash, withSuccess: { (transaction) in
-//            let coinGeckoDataSource = CoinGeckoDataSource()
-//            coinGeckoDataSource.getETHPrice(withSuccess: { (ethPrice) in
-//                if let valueDecimal = transaction?.value?.hexaToDecimal, valueDecimal > 0 {
-//                    let decimals = self.token?.decimals ?? "0"
-//                    let doubleValue = Double("1e-\(decimals)") ?? 0
-//                    let totalEth = Double(valueDecimal) * (doubleValue)
-//                    let priceUSD = self.token?.usdMarketPrice(withEtherPrice: ethPrice) ?? 0.0
-//                    let priceETH = self.token?.derivedETH
-//                    var amountToken = 0.0
-//                    if let priceETH = priceETH, let priceETHDouble = Double(priceETH) {
-//                        amountToken = totalEth / priceETHDouble
-//                        print(String(format: "<somedate>\t\t\("buy".green)\t%.8f\t%.8f\t%.8f\t%.8f\t\(transaction?.from ?? "???")",priceUSD,priceETHDouble,amountToken,totalEth))
-//                    }
-//                } else {
-//                    print(String(format: "<somedate>\t\t\("sell?".red)\t%.8f\t%.8f\t%.8f\t%.8f\t\(transaction?.from ?? "???")",0.0,0.0,0.0,0.0))
-//                }
-//            }) { (error) in
-//                print("Coin Gecko Error: \(error?.localizedDescription ?? "Unknown Error")")
-//            }
-//        }) { (error) in
-//            print(error?.localizedDescription ?? "Unknown Error")
-//        }
     }
     
     func processText(_ text:String) {
@@ -225,7 +203,10 @@ class SocketManager : WebSocketDelegate {
             }
             let sub = try JSONDecoder().decode(Subscription.self, from: jsonData)
             if let txnHash = sub.params?.result?.transactionHash {
-                self.printTransactionHash(txnHash)
+                if !self.hashesSeen.contains(txnHash) {
+                    self.hashesSeen.append(txnHash)
+                    self.printTransactionHash(txnHash)
+                }
             }
         } catch let error {
             print(error.localizedDescription)
