@@ -38,8 +38,6 @@ class SocketManager : WebSocketDelegate {
                     print("--> \(socketString)")
                 }
                 self.socket?.write(string: socketString, completion: nil)
-                
-                // error:   some sells are doubled
             } else {
                 print("Token returned nil")
             }
@@ -53,9 +51,9 @@ class SocketManager : WebSocketDelegate {
             print("--> printTransactionHash()   \(txnHash)")
         }
         enum TransactionType : String {
-            case buy, sell
+            case buy, sell, unknown
         }
-        var transactionType : TransactionType = .buy
+        var transactionType : TransactionType = .unknown
         var inAmount = 0.0
         var outAmount = 0.0
         let decimals = self.token?.decimals ?? "0"
@@ -74,18 +72,17 @@ class SocketManager : WebSocketDelegate {
                     let inputDataMethodSig = txnObject.result??.input.hex().prefix(10)
                     let inputDataParams = String(txnObject.result??.input.hex().dropFirst(10) ?? "")
                     
-                    // swapExactTokensForETH
                     if inputDataMethodSig == "0x18cbafe5" {
+                        // swapExactTokensForETH
                         transactionType = .sell
-                    }
-                    
-                    // swapExactETHForTokens
-                    if inputDataMethodSig == "0x7ff36ab5" {
+                    } else if inputDataMethodSig == "0x49c082cd" {
+                        // zapOut
+                        transactionType = .sell
+                    } else if inputDataMethodSig == "0x7ff36ab5" {
+                        // swapExactETHForTokens
                         transactionType = .buy
-                    }
-
-                    // swapExactTokensForTokens
-                    if inputDataMethodSig == "0x38ed1739" {
+                    } else if inputDataMethodSig == "0x38ed1739" {
+                        // swapExactTokensForTokens
                         do {
                             // this is weird -- looks like it may have changed, the array decoding no longer is working here
                             let params = try ABI.decodeParameters(types: [.uint256,.uint256,.address,.address,.uint256,.uint256,.address], from: inputDataParams)
@@ -99,6 +96,11 @@ class SocketManager : WebSocketDelegate {
                             }
                         } catch let error {
                             print(error)
+                        }
+                    } else {
+                        // this catches extra cases where we dont know the method, but can guess
+                        if (txnObject.result??.value.quantity ?? 0) > 0 {
+                            transactionType = .buy
                         }
                     }
                     
@@ -157,7 +159,7 @@ class SocketManager : WebSocketDelegate {
                                 if foundSwap {
                                     let coinGeckoDataSource = CoinGeckoDataSource()
                                     coinGeckoDataSource.getETHPrice(withSuccess: { (ethPrice) in
-                                        let totalEth = transactionType == .sell ? outAmount : inAmount
+                                        let totalEth = (transactionType == .sell) || (transactionType == .unknown) ? outAmount : inAmount
                                         let priceUSD = self.token?.usdMarketPrice(withEtherPrice: ethPrice) ?? 0.0
                                         let priceETH = self.token?.derivedETH
                                         let amountToken = transactionType == .buy ? outAmount : inAmount
