@@ -21,7 +21,7 @@ TxnWatch connects via websocket to Infura and subscribes to the logs of a given 
 ### Building Notes
 
 As a quick hack for handling secrets (like API keys), I just put them in a file that is excluded from git. 
-1. Under the `Sources` folder, create a file called `Secrets.swift`
+1. Under the `Sources/TxnWatch` folder, create a file called `Secrets.swift`
 2. In that file put this:
 ```
 struct Secrets {
