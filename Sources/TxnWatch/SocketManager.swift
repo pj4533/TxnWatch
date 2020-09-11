@@ -97,6 +97,10 @@ class SocketManager : WebSocketDelegate {
                         } catch let error {
                             print(error)
                         }
+                    } else if (inputDataMethodSig == "0x168d88b9") {
+                        // not sure what this is, doesn't decode right on EtherScan
+                        transactionType = .sell
+                        shouldReverse = false
                     } else {
                         // this catches extra cases where we dont know the method, but can guess
                         if (txnObject.result??.value.quantity ?? 0) > 0 {
