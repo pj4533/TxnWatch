@@ -81,8 +81,8 @@ class SocketManager : WebSocketDelegate {
                     } else if inputDataMethodSig == "0x7ff36ab5" {
                         // swapExactETHForTokens
                         transactionType = .buy
-                    } else if inputDataMethodSig == "0x38ed1739" {
-                        // swapExactTokensForTokens
+                    } else if (inputDataMethodSig == "0x38ed1739") || (inputDataMethodSig == "0x8803dbee") {
+                        // swapExactTokensForTokens and swapTokensForExactTokens
                         do {
                             // this is weird -- looks like it may have changed, the array decoding no longer is working here
                             let params = try ABI.decodeParameters(types: [.uint256,.uint256,.address,.address,.uint256,.uint256,.address], from: inputDataParams)
