@@ -5,10 +5,10 @@ import Rainbow
 struct TxnWatch: ParsableCommand {
     static let configuration = CommandConfiguration(
     	commandName: "txnwatch",
-        abstract: "Realtime Ether Transactions"
+        abstract: "Realtime ERC20 Token Transactions"
     )
 
-    @Argument(help: "Ethereum token address")
+    @Argument(help: "ERC20 token address")
     var address: String
     
     @Flag(name: .shortAndLong, help: "Include transaction hash in output")
