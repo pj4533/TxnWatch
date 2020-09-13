@@ -1,7 +1,15 @@
 import Foundation
 
 class UniswapDataSource {
-    internal func uniswapGraphQLTokenQuery(parameters: [String:Any], withSuccess success: ((_ token: Token?) -> Void)?, failure: ((_ error: Error?) -> Void)? ) {
+    func getToken(queryString: String, withSuccess success: ((_ token: Token?) -> Void)?, failure: ((_ error: Error?) -> Void)? ) {
+        let parameters : [String:Any] = [
+            "query" : "query tokens($value: String, $id: String) {  asSymbol: tokens(where: {symbol_contains: $value}) {id name symbol derivedETH totalSupply totalLiquidity decimals} asName: tokens(where: {name_contains: $value}) {id name symbol derivedETH totalSupply totalLiquidity decimals}  asAddress: tokens(where: {id: $id}) {id name symbol derivedETH totalSupply totalLiquidity decimals}}",
+            "variables" : [
+                "value" : queryString.uppercased(),
+                "id" : queryString.lowercased()
+            ]
+        ]
+        
         let url = URL(string: "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -13,12 +21,15 @@ class UniswapDataSource {
         
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.addValue("application/json", forHTTPHeaderField: "Accept")
-        
-        struct TokensReponse : Codable {
-            let tokens : [Token]?
+
+        struct DataResponse : Codable {
+            let asAddress : [Token]
+            let asName : [Token]
+            let asSymbol : [Token]
         }
+        
         struct GraphQLResponse : Codable {
-            let data: TokensReponse?
+            let data: DataResponse?
         }
         
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
@@ -28,22 +39,19 @@ class UniswapDataSource {
                     decoder.keyDecodingStrategy = .convertFromSnakeCase
                     let graphQLResponse = try decoder.decode(GraphQLResponse.self, from: data)
                     
-                    success?(graphQLResponse.data?.tokens?.first)
+                    let tokens = (graphQLResponse.data?.asSymbol ?? []) + ((graphQLResponse.data?.asName ?? []) + (graphQLResponse.data?.asAddress ?? [])).unique {$0.id}
+
+                    let exactMatchSymbol = tokens.filter({$0.symbol.lowercased() == queryString.lowercased()})
+                    if exactMatchSymbol.count > 0 {
+                        success?(exactMatchSymbol.first)
+                    } else {
+                        success?(tokens.first)
+                    }
                 } catch let error {
                     print(error)
                 }
             }
         }
         task.resume()
-    }
-    
-    func getToken(tokenId: String, withSuccess success: ((_ token: Token?) -> Void)?, failure: ((_ error: Error?) -> Void)? ) {
-        let parameters : [String:Any] = [
-            "query" : "query($tokenIds: [String]!) {  tokens(where: { id_in: $tokenIds } ) { id name symbol derivedETH totalSupply totalLiquidity decimals   }  }",
-            "variables" : [
-                "tokenIds" : [tokenId.lowercased()]
-            ]
-        ]
-        self.uniswapGraphQLTokenQuery(parameters: parameters, withSuccess: success, failure: failure)
     }
 }

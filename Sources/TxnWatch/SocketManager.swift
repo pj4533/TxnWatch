@@ -20,10 +20,10 @@ class SocketManager : WebSocketDelegate {
         self.socket?.connect()
     }
     
-    func getTxns(forAddress address: String, includeTransaction:Bool?) {
+    func getTxns(forQueryString queryString: String, includeTransaction:Bool?) {
         self.includeTransactionHash = includeTransaction
         let uniswapDataSource = UniswapDataSource()
-        uniswapDataSource.getToken(tokenId: address, withSuccess: { (token) in
+        uniswapDataSource.getToken(queryString: queryString, withSuccess: { (token) in
             self.token = token
             if let token = token {
                 print("\nWatching transactions for \(token.name) (\(token.symbol))\n")
@@ -33,7 +33,7 @@ class SocketManager : WebSocketDelegate {
                     print("\("Date".white.bold)\t\t\t\("Type".white.bold)\t\("Price (USD)".white.bold)\t\("Price (ETH)".white.bold)\t\("Amount \(token.symbol)".white.bold)\t\("Total ETH".white.bold)")
                 }
 
-                let socketString = "{\"jsonrpc\":\"2.0\",\"method\":\"eth_subscribe\",\"id\":1,\"params\":[\"logs\", {\"address\":[\"\(address)\"]}]}"
+                let socketString = "{\"jsonrpc\":\"2.0\",\"method\":\"eth_subscribe\",\"id\":1,\"params\":[\"logs\", {\"address\":[\"\(token.id)\"]}]}"
                 if self.debug {
                     print("--> \(socketString)")
                 }
@@ -48,7 +48,7 @@ class SocketManager : WebSocketDelegate {
     
     func printTransactionHash(_ txnHash: String) {
         let uniswapDataSource = UniswapDataSource()
-        uniswapDataSource.getToken(tokenId: self.token?.id ?? "", withSuccess: { (token) in
+        uniswapDataSource.getToken(queryString: self.token?.id ?? "", withSuccess: { (token) in
             self.token = token
             if (self.debug) {
                 print("--> printTransactionHash()   \(txnHash)")
