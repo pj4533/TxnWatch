@@ -5,10 +5,10 @@
 ```
 OVERVIEW: Realtime ERC20 Token Transactions
 
-USAGE: txnwatch <address> [--include-transaction]
+USAGE: txnwatch <query> [--include-transaction]
 
 ARGUMENTS:
-  <address>               ERC20 token address
+  <query>                 ERC20 address/symbol/name
 
 OPTIONS:
   -i, --include-transaction
@@ -16,7 +16,7 @@ OPTIONS:
   -h, --help              Show help information.
   ```
 
-TxnWatch connects via websocket to Infura and subscribes to the logs of a given address. When a transaction comes through, a call is made to get the transaction and the transaction receipt. Data is parsed using the [Web3.swift](https://github.com/Boilertalk/Web3.swift) library.
+TxnWatch connects via websocket to Infura and subscribes to the logs of a given token. When a transaction comes through, a call is made to get the transaction and the transaction receipt. Data is parsed using the [Web3.swift](https://github.com/Boilertalk/Web3.swift) library.
 
 ### Building Notes
 
