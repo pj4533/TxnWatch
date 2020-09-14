@@ -50,6 +50,46 @@ class SocketManager : WebSocketDelegate {
         let uniswapDataSource = UniswapDataSource()
         uniswapDataSource.getToken(queryString: self.token?.id ?? "", withSuccess: { (token) in
             self.token = token
+            uniswapDataSource.getSwap(forTxnHash: txnHash, withSuccess: { (swap) in
+                if let transactionType = swap?.transactionType(forToken: self.token) {
+                    let coinGeckoDataSource = CoinGeckoDataSource()
+                    coinGeckoDataSource.getETHPrice(withSuccess: { (ethPrice) in
+                        let totalEth = swap?.amountEth() ?? 0.0
+                        let priceUSD = self.token?.usdMarketPrice(withEtherPrice: ethPrice) ?? 0.0
+                        let priceETH = self.token?.derivedETH
+                        let amountToken = swap?.amountToken(forToken: self.token) ?? 0.0
+                        let colorizedTransactionType = transactionType == .buy ? transactionType.rawValue.green : transactionType.rawValue.red
+                        
+                        let formatter = DateFormatter()
+                        formatter.dateFormat = "MM/dd/yyyy h:mm:ss"
+                        let date = Date(timeIntervalSince1970: Double(swap?.transaction?.timestamp ?? "0") ?? 0.0)
+                        let dateString = formatter.string(from: date)
+                        
+                        
+                        if self.includeTransactionHash ?? false {
+                            print(String(format: "\(dateString)\t\(colorizedTransactionType)\t%.8f\t%.8f\t%.8f\t%.8f\t\(txnHash)",priceUSD,Double(priceETH ?? "0.0") ?? 0.0,amountToken,totalEth))
+                        } else {
+                            print(String(format: "\(dateString)\t\(colorizedTransactionType)\t%.8f\t%.8f\t%.8f\t%.8f",priceUSD,Double(priceETH ?? "0.0") ?? 0.0,amountToken,totalEth))
+                        }
+                    }) { (error) in
+                        print("Coin Gecko Error: \(error?.localizedDescription ?? "Unknown Error")")
+                    }
+
+                } else {
+                    print("ERROR: no swaps in txn \(txnHash)")
+                }
+            }) { (error) in
+                print(error?.localizedDescription ?? "Unknown error")
+            }
+        }) { (error) in
+            print(error?.localizedDescription ?? "Unknown error")
+        }
+    }
+    
+    func __printTransactionHash(_ txnHash: String) {
+        let uniswapDataSource = UniswapDataSource()
+        uniswapDataSource.getToken(queryString: self.token?.id ?? "", withSuccess: { (token) in
+            self.token = token
             if (self.debug) {
                 print("--> printTransactionHash()   \(txnHash)")
             }
@@ -217,7 +257,12 @@ class SocketManager : WebSocketDelegate {
             if let txnHash = sub.params?.result?.transactionHash {
                 if !self.hashesSeen.contains(txnHash) {
                     self.hashesSeen.append(txnHash)
-                    self.printTransactionHash(txnHash)
+                    
+                    // some sort of timing issue between websocket and pulling from uniswaps graph
+                    // sometimes even 20s not enough. prob not good enough for realtime
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 20) {
+                        self.printTransactionHash(txnHash)
+                    }
                 }
             }
         } catch let error {

@@ -1,6 +1,49 @@
 import Foundation
 
 class UniswapDataSource {
+    func getSwap(forTxnHash txnHash: String, withSuccess success: ((_ swap: Swap?) -> Void)?, failure: ((_ error: Error?) -> Void)? ) {
+        let parameters : [String:Any] = [
+            "query" : "query ($txnHash: String) { swaps(where: {transaction: $txnHash}) { transaction { id timestamp } id pair { token0 { id symbol name derivedETH decimals } token1 { id symbol name derivedETH decimals }} amount0In    amount0Out amount1In amount1Out amountUSD to }}",
+            "variables" : [
+                "txnHash" : txnHash
+            ]
+        ]
+        
+        let url = URL(string: "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: parameters, options: .prettyPrinted)
+        } catch let error {
+            print(error.localizedDescription)
+        }
+        
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("application/json", forHTTPHeaderField: "Accept")
+
+        struct SwapsResponse : Codable {
+            let swaps : [Swap]?
+        }
+        
+        struct GraphQLResponse : Codable {
+            let data: SwapsResponse?
+        }
+        
+        let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
+            if let data = data {
+                do {
+                    let decoder = JSONDecoder()
+                    decoder.keyDecodingStrategy = .convertFromSnakeCase
+                    let graphQLResponse = try decoder.decode(GraphQLResponse.self, from: data)
+                    success?(graphQLResponse.data?.swaps?.first)
+                } catch let error {
+                    print(error)
+                }
+            }
+        }
+        task.resume()
+    }
+    
     func getToken(queryString: String, withSuccess success: ((_ token: Token?) -> Void)?, failure: ((_ error: Error?) -> Void)? ) {
         let parameters : [String:Any] = [
             "query" : "query tokens($value: String, $id: String) {  asSymbol: tokens(where: {symbol_contains: $value}, orderBy: totalLiquidity, orderDirection: desc) {id name symbol derivedETH totalSupply totalLiquidity decimals} asName: tokens(where: {name_contains: $value}, orderBy: totalLiquidity, orderDirection: desc) {id name symbol derivedETH totalSupply totalLiquidity decimals}  asAddress: tokens(where: {id: $id}, orderBy: totalLiquidity, orderDirection: desc) {id name symbol derivedETH totalSupply totalLiquidity decimals}}",
