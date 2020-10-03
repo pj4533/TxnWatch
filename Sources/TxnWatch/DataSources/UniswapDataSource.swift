@@ -3,7 +3,7 @@ import Foundation
 class UniswapDataSource {
     func getToken(queryString: String, withSuccess success: ((_ token: Token?) -> Void)?, failure: ((_ error: Error?) -> Void)? ) {
         let parameters : [String:Any] = [
-            "query" : "query tokens($value: String, $id: String) {  asSymbol: tokens(where: {symbol_contains: $value}) {id name symbol derivedETH totalSupply totalLiquidity decimals} asName: tokens(where: {name_contains: $value}) {id name symbol derivedETH totalSupply totalLiquidity decimals}  asAddress: tokens(where: {id: $id}) {id name symbol derivedETH totalSupply totalLiquidity decimals}}",
+            "query" : "query tokens($value: String, $id: String) {  asSymbol: tokens(where: {symbol_contains: $value}, orderBy: totalLiquidity, orderDirection: desc) {id name symbol derivedETH totalSupply totalLiquidity decimals} asName: tokens(where: {name_contains: $value}, orderBy: totalLiquidity, orderDirection: desc) {id name symbol derivedETH totalSupply totalLiquidity decimals}  asAddress: tokens(where: {id: $id}, orderBy: totalLiquidity, orderDirection: desc) {id name symbol derivedETH totalSupply totalLiquidity decimals}}",
             "variables" : [
                 "value" : queryString.uppercased(),
                 "id" : queryString.lowercased()
