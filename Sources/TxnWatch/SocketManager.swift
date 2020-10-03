@@ -1,8 +1,6 @@
 import Foundation
 import Starscream
-import Web3
-import Web3PromiseKit
-import Web3ContractABI
+import UInt256
 
 class SocketManager : WebSocketDelegate {
     
@@ -54,7 +52,7 @@ class SocketManager : WebSocketDelegate {
                 print("--> printTransactionHash()   \(txnHash)")
             }
             enum TransactionType : String {
-                case buy, sell, unknown
+                case buy, sell, addLiquidity = "add", removeLiquidity = "remove", getReward = "reward", exit, deposit, withdraw, approve, transfer, unknown
             }
             var transactionType : TransactionType = .unknown
             var inAmount = 0.0
@@ -64,137 +62,148 @@ class SocketManager : WebSocketDelegate {
             var foundSwap = false
             var shouldReverse = true
             if let tokenId = self.token?.id.lowercased() {
-                do {
-                    let web3 = Web3(rpcURL: "https://mainnet.infura.io/v3/\(Secrets().infuraProjectId)")
-                    let contractAddress = try EthereumAddress(hex: tokenId, eip55: false)
-                    let contractAddressChecksummed = try EthereumAddress(hex: contractAddress.hex(eip55: true), eip55: true)
-                    let contract = web3.eth.Contract(type: GenericERC20Contract.self, address: contractAddressChecksummed)
-                    let txn = EthereumValue(stringLiteral: txnHash)
-                    try contract.eth.getTransactionByHash(blockHash: EthereumData(EthereumData(ethereumValue: txn.ethereumValue())), response: { (txnObject) in
+                let datasource = InfuraDataSource()
+                datasource.getTxnHash(txnHash: txnHash) { (transaction) in
+                    if let inputData = transaction?.input {
+                        let inputDataMethodSig = inputData.prefix(10)
+                        let inputDataParams = inputData.dropFirst(10)
 
-                        let inputDataMethodSig = txnObject.result??.input.hex().prefix(10)
-                        let inputDataParams = String(txnObject.result??.input.hex().dropFirst(10) ?? "")
-                        
-                        if inputDataMethodSig == "0x18cbafe5" {
-                            // swapExactTokensForETH
+                        if (inputDataMethodSig == "0x18cbafe5") || (inputDataMethodSig == "0x4a25d94a") {
+                            // swapExactTokensForETH or swapTokensForExactETH
+//                            print("---> swapExactTokensForETH or swapTokensForExactETH (\(txnHash))")
                             transactionType = .sell
                         } else if inputDataMethodSig == "0x49c082cd" {
                             // zapOut
+//                            print("---> zapOut (\(txnHash))")
                             transactionType = .sell
-                        } else if inputDataMethodSig == "0x7ff36ab5" {
-                            // swapExactETHForTokens
+                        } else if (inputDataMethodSig == "0x7ff36ab5") || (inputDataMethodSig == "0xfb3bdb41") {
+                            // swapExactETHForTokens and swapETHForExactTokens
+//                            print("---> swapExactETHForTokens (\(txnHash))")
                             transactionType = .buy
                         } else if (inputDataMethodSig == "0x38ed1739") || (inputDataMethodSig == "0x8803dbee") {
                             // swapExactTokensForTokens and swapTokensForExactTokens
-                            do {
-                                // this is weird -- looks like it may have changed, the array decoding no longer is working here
-                                let params = try ABI.decodeParameters(types: [.uint256,.uint256,.address,.address,.uint256,.uint256,.address], from: inputDataParams)
-                                if let firstTokenInSwap = (params.last as? EthereumAddress)?.hex(eip55: false) {
-                                    if firstTokenInSwap == tokenId {
-                                        shouldReverse = false
-                                        transactionType = .sell
-                                    } else {
-                                        transactionType = .buy
-                                    }
+//                            print("---> swapExactTokensForTokens or swapTokensForExactToken (\(txnHash))")
+                            // could be buy or sell, depending on where the token in question is, need to look at input data params (See below)
+                            
+                            let dataStringArray = inputDataParams.replacingOccurrences(of: "0x", with: "").components(withLength: 64)
+
+                            if let firstTokenInSwap = dataStringArray.last {
+                                print("tokenId: \(tokenId)    firstTokenInSwap: \(firstTokenInSwap)")
+                                if tokenId.contains(firstTokenInSwap) {
+                                    shouldReverse = false
+                                    transactionType = .sell
+                                } else {
+                                    transactionType = .buy
                                 }
-                            } catch let error {
-                                print(error)
                             }
-                        } else if (inputDataMethodSig == "0x168d88b9") {
-                            // not sure what this is, doesn't decode right on EtherScan
-                            transactionType = .sell
-                            shouldReverse = false
+
+                        } else if (inputDataMethodSig == "0xe2bbb158") {
+                            // deposit
+//                            print("---> deposit (\(txnHash))")
+                            transactionType = .deposit
+                        } else if (inputDataMethodSig == "0x441a3e70") {
+                            // withdraw
+//                            print("---> withdraw (\(txnHash))")
+                            transactionType = .withdraw
+                        } else if (inputDataMethodSig == "0xf305d719") {
+                            // addLiquidityETH
+//                            print("---> addLiquidityETH (\(txnHash))")
+                            transactionType = .addLiquidity
+                        } else if (inputDataMethodSig == "0x2195995c") || (inputDataMethodSig == "0xded9382a") {
+                            // removeLiquidityWithPermit
+//                            print("---> removeLiquidityWithPermit (\(txnHash))")
+                            transactionType = .removeLiquidity
+                        } else if (inputDataMethodSig == "0x095ea7b3") {
+                            // approve
+//                            print("---> approve (\(txnHash))")
+                            transactionType = .approve
+                        } else if (inputDataMethodSig == "0x1c4b774b") {
+                            // getReward
+//                            print("---> getReward (\(txnHash))")
+                            transactionType = .getReward
+                        } else if inputDataMethodSig == "0x2af9cc41" {
+                            // exit
+//                            print("---> exit (\(txnHash))")
+                            transactionType = .exit
+                        } else if inputDataMethodSig == "0xa9059cbb" {
+                            transactionType = .transfer
                         } else {
-                            // this catches extra cases where we dont know the method, but can guess
-                            if (txnObject.result??.value.quantity ?? 0) > 0 {
-                                transactionType = .buy
+                            print("---> Unknown: \(inputDataMethodSig) (\(txnHash))")
+                        }
+                    }
+                    
+                    datasource.getTxnReceipt(txnHash: txnHash) { (receipt) in
+                        let logs = shouldReverse ? receipt?.logs?.reversed() : receipt?.logs
+                        for log in logs ?? [] {
+                            if self.debug {
+                                print("Log #\(log.logIndex ?? "-") Address: \(log.address ?? "-")")
+                                print("Log #\(log.logIndex ?? "-") Data: \(log.data ?? "-")")
+                            }
+
+                            // 0xd78... is the ERC20 Sig for Swap
+                            if (log.topics?.first?.lowercased() == "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822") {
+                                foundSwap = true
+                                let dataStringArray = log.data?.replacingOccurrences(of: "0x", with: "").components(withLength: 64)
+                                
+                                // couldnt figure this out with a map, not sure why
+                                var amounts : [UInt256] = []
+                                for str in dataStringArray ?? [] {
+                                    amounts.append(UInt256(str, radix: 16) ?? 0)
+                                }
+                                var amountIndex = 0
+                                for amount in amounts {
+                                    if amount != 0, (amountIndex == 0) || (amountIndex == 1) {
+                                        inAmount = Double(amount) * decimalMultiplier
+                                    }
+                                    if amount != 0, (amountIndex == 2) || (amountIndex == 3) {
+                                        outAmount = Double(amount) * decimalMultiplier
+                                    }
+                                    amountIndex = amountIndex + 1
+                                }
+
+                                // if we found a swap, there might be another if it is a swapTokensForTokens, but we just care about the first one
+                                if foundSwap {
+                                    break
+                                }
                             }
                         }
                         
-                        do {
-                            try contract.eth.getTransactionReceipt(transactionHash:
-                                EthereumData(EthereumData(ethereumValue: txn.ethereumValue())), response: { (receipt) in
-                                    var logIndex = 1
-                                    let logs = shouldReverse ? receipt.result??.logs.reversed() : receipt.result??.logs
-                                    for log in logs ?? [] {
-                                        if self.debug {
-                                            print("Log #\(logIndex) Address: \(log.address.hex(eip55: false))")
-                                            print("Log #\(logIndex) Data: \(log.data.ethereumValue().string ?? "???")")
-                                        }
+                        let coinGeckoDataSource = CoinGeckoDataSource()
+                        coinGeckoDataSource.getETHPrice(withSuccess: { (ethPrice) in
+                            let priceUSD = self.token?.usdMarketPrice(withEtherPrice: ethPrice) ?? 0.0
+                            let priceETH = self.token?.derivedETH
+                            let formatter = DateFormatter()
+                            formatter.dateFormat = "MM/dd/yyyy h:mm:ss"
+                            let dateString = formatter.string(from: Date())
 
-                                        // 0xd78... is the ERC20 Sig for Swap
-                                        if (log.topics.first?.hex() == "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822") {
-                                            foundSwap = true
-                                            do {
-                                                let param = try ABI.decodeParameters(types: [.uint256,.uint256,.uint256,.uint256], from: log.data.hex())
-                                                if self.debug {
-                                                    print("Log #\(logIndex) Decoded Data: \(param)")
-                                                }
 
-                                                if let amounts = param as? [BigUInt] {
-                                                    var amountIndex = 0
-                                                    for amount in amounts {
-                                                        if amount != 0, (amountIndex == 0) || (amountIndex == 1) {
-                                                            inAmount = Double(amount) * decimalMultiplier
-                                                        }
-                                                        if amount != 0, (amountIndex == 2) || (amountIndex == 3) {
-                                                            outAmount = Double(amount) * decimalMultiplier
-                                                        }
-                                                        amountIndex = amountIndex + 1
-                                                    }
-                                                }
-                                            } catch let error {
-                                                print(error)
-                                            }
-                                        }
+                            if foundSwap {
+                                let totalEth = (transactionType == .sell) || (transactionType == .unknown) ? outAmount : inAmount
+                                let amountToken = transactionType == .buy ? outAmount : inAmount
+                                let colorizedTransactionType = transactionType == .buy ? transactionType.rawValue.green : transactionType.rawValue.red
 
-                                        if self.debug {
-                                            var topicIndex = 1
-                                            for topic in log.topics {
-                                                print("Log #\(logIndex) Topic #\(topicIndex): \(topic.hex())")
-                                                topicIndex = topicIndex + 1
-                                            }
-                                        }
-                                        logIndex = logIndex + 1
-
-                                        // if we found a swap, there might be another if it is a swapTokensForTokens, but we just care about the first one
-                                        if foundSwap {
-                                            break
-                                        }
-                                    }
-
-                                    if foundSwap {
-                                        let coinGeckoDataSource = CoinGeckoDataSource()
-                                        coinGeckoDataSource.getETHPrice(withSuccess: { (ethPrice) in
-                                            let totalEth = (transactionType == .sell) || (transactionType == .unknown) ? outAmount : inAmount
-                                            let priceUSD = self.token?.usdMarketPrice(withEtherPrice: ethPrice) ?? 0.0
-                                            let priceETH = self.token?.derivedETH
-                                            let amountToken = transactionType == .buy ? outAmount : inAmount
-                                            let colorizedTransactionType = transactionType == .buy ? transactionType.rawValue.green : transactionType.rawValue.red
-                                            
-                                            let formatter = DateFormatter()
-                                            formatter.dateFormat = "MM/dd/yyyy h:mm:ss"
-                                            let dateString = formatter.string(from: Date())
-                                            
-                                            
-                                            if self.includeTransactionHash ?? false {
-                                                print(String(format: "\(dateString)\t\(colorizedTransactionType)\t%.8f\t%.8f\t%.8f\t%.8f\t\(txnHash)",priceUSD,Double(priceETH ?? "0.0") ?? 0.0,amountToken,totalEth))
-                                            } else {
-                                                print(String(format: "\(dateString)\t\(colorizedTransactionType)\t%.8f\t%.8f\t%.8f\t%.8f",priceUSD,Double(priceETH ?? "0.0") ?? 0.0,amountToken,totalEth))
-                                            }
-                                        }) { (error) in
-                                            print("Coin Gecko Error: \(error?.localizedDescription ?? "Unknown Error")")
-                                        }
-                                    }
-                            })
-
-                        } catch let error {
-                           print(error)
+                                if self.includeTransactionHash ?? false {
+                                    print(String(format: "\(dateString)\t\(colorizedTransactionType)\t%.8f\t%.8f\t%.8f\t%.8f\t\(txnHash)",priceUSD,Double(priceETH ?? "0.0") ?? 0.0,amountToken,totalEth))
+                                } else {
+                                    print(String(format: "\(dateString)\t\(colorizedTransactionType)\t%.8f\t%.8f\t%.8f\t%.8f",priceUSD,Double(priceETH ?? "0.0") ?? 0.0,amountToken,totalEth))
+                                }
+                            } else {
+                                if self.includeTransactionHash ?? false {
+                                    print(String(format: "\(dateString)\t\(transactionType.rawValue)\t%.8f\t%.8f\t-\t\t-\t\t\(txnHash)",priceUSD,Double(priceETH ?? "0.0") ?? 0.0))
+                                } else {
+                                    print(String(format: "\(dateString)\t\(transactionType.rawValue)\t%.8f\t%.8f",priceUSD,Double(priceETH ?? "0.0") ?? 0.0))
+                                }
+                            }
+                        }) { (error) in
+                            print("Coin Gecko Error: \(error?.localizedDescription ?? "Unknown Error")")
                         }
-                    })
-                } catch let error {
-                    print(error)
+                    } failure: { (error) in
+                        print(error?.localizedDescription ?? "unknown error")
+                    }
+                } failure: { (error) in
+                    print(error?.localizedDescription ?? "unknown error")
                 }
+
             }
         }) { (error) in
             print(error?.localizedDescription ?? "Unknown Error")
@@ -219,6 +228,10 @@ class SocketManager : WebSocketDelegate {
                     self.hashesSeen.append(txnHash)
                     self.printTransactionHash(txnHash)
                 }
+            } else {
+                if debug {
+                    print("ERROR: unknown text received: \(text)")
+                }
             }
         } catch let error {
             print(error.localizedDescription)
@@ -232,9 +245,7 @@ class SocketManager : WebSocketDelegate {
                 print("websocket is connected")
             }
         case .disconnected(let reason, let code):
-            if self.debug {
-                print("websocket is disconnected: \(reason) with code: \(code)")
-            }
+            print("websocket is disconnected: \(reason) with code: \(code)")
         case .text(let string):
             if self.debug {
                 print("Received text: \(string)")
@@ -249,6 +260,7 @@ class SocketManager : WebSocketDelegate {
         case .viabilityChanged(_):
             break
         case .reconnectSuggested(_):
+            print("********** reconnectSuggested ****************")
             break
         case .cancelled:
             print("Cancelled")
